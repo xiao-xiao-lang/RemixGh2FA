@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOTP 验证码生成器</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card-bg: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --danger: #f85149;
+            --warning: #d2991d;
+            --input-bg: #0d1117;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 520px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .header h1 .icon {
+            width: 36px;
+            height: 36px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+
+        .input-group textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-size: 13px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row .input-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            background: var(--card-bg);
+            color: var(--text);
+            white-space: nowrap;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            background: #1c2129;
+            border-color: #484f58;
+        }
+
+        .btn-primary {
+            background: #238636;
+            border-color: rgba(240, 246, 252, 0.1);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #2ea043;
+        }
+
+        .btn-danger {
+            background: transparent;
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: rgba(248, 81, 73, 0.1);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn-block {
+            display: flex;
+            width: 100%;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .otp-display {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .otp-code {
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: 12px;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+            color: var(--success);
+            text-shadow: 0 0 20px rgba(63, 185, 80, 0.3);
+            margin: 8px 0;
+            transition: color 0.3s;
+            min-height: 67px;
+            line-height: 1.2;
+        }
+
+        .otp-code.placeholder {
+            color: var(--text-secondary);
+            text-shadow: none;
+            letter-spacing: 4px;
+        }
+
+        .otp-code.expiring {
+            color: var(--warning);
+            text-shadow: 0 0 20px rgba(210, 153, 29, 0.3);
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        .otp-code.expired {
+            color: var(--danger);
+            text-shadow: 0 0 20px rgba(248, 81, 73, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .timer-bar-container {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            margin: 12px 0;
+            overflow: hidden;
+        }
+
+        .timer-bar {
+            height: 100%;
+            background: var(--success);
+            border-radius: 3px;
+            transition: width 1s linear, background 0.3s;
+        }
+
+        .timer-bar.expiring {
+            background: var(--warning);
+        }
+
+        .timer-bar.expired {
+            background: var(--danger);
+        }
+
+        .timer-text {
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .account-info {
+            margin-top: 8px;
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .account-info .issuer {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .account-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .account-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .account-item:hover {
+            background: #1c2129;
+            border-color: #484f58;
+        }
+
+        .account-item.active {
+            border-color: var(--accent);
+            background: rgba(88, 166, 255, 0.08);
+        }
+
+        .account-item .acc-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .account-item .acc-issuer {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .account-item .acc-otp {
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--success);
+            letter-spacing: 4px;
+        }
+
+        .account-item .btn-sm {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .account-item:hover .btn-sm {
+            opacity: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1c2129;
+            border: 1px solid var(--border);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text);
+            z-index: 1000;
+            animation: fadeInUp 0.3s ease, fadeOut 0.3s ease 1.7s forwards;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            line-height: 1.5;
+        }
+
+        .help-text code {
+            background: var(--input-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            .otp-code {
+                font-size: 42px;
+                letter-spacing: 8px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .btn-group {
+                flex-direction: column;
+            }
+            .btn-group .btn {
+                width: 100%;
+            }
+        }
+
+        /* 隐藏的文件输入 */
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    <circle cx="12" cy="16" r="1"/>
+                </svg>
+                TOTP 验证码生成器
+            </h1>
+            <p>离线可用 · 兼容 GitHub / Microsoft Authenticator 等标准 TOTP</p>
+        </div>
+
+        <!-- 当前验证码显示 -->
+        <div class="card" id="activeCard">
+            <div class="card-title">
+                <span>🔑</span> 当前验证码
+            </div>
+            <div class="otp-display">
+                <div class="otp-code placeholder" id="otpCode">添加账户以生成验证码</div>
+                <div class="timer-bar-container">
+                    <div class="timer-bar" id="timerBar" style="width: 0%;"></div>
+                </div>
+                <div class="timer-text" id="timerText">等待添加账户...</div>
+            </div>
+            <div class="account-info" id="activeAccountInfo" style="display:none;">
+                <div>
+                    <span class="issuer" id="activeIssuer"></span>
+                    <span style="margin:0 6px;">/</span>
+                    <span id="activeAccount"></span>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="removeAccount(currentAccountIndex)" title="删除此账户">删除</button>
+            </div>
+        </div>
+
+        <!-- 添加账户 -->
+        <div class="card">
+            <div class="card-title">
+                <span>➕</span> 添加账户
+            </div>
+            <div class="input-group">
+                <label>粘贴 GitHub 提供的密钥或 otpauth 链接</label>
+                <textarea id="secretInput" placeholder="例如：JBSWY3DPEHPK3PXP&#10;或 otpauth://totp/GitHub:username?secret=JBSWY3DPEHPK3PXP&issuer=GitHub"></textarea>
+                <p class="help-text">
+                    支持格式：<code>Base32 密钥</code>、<code>otpauth://totp/...</code> 完整链接<br>
+                    密钥中可包含空格，会自动清理
+                </p>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>账户名（可选）</label>
+                    <input type="text" id="accountName" placeholder="例如：my-github-account">
+                </div>
+                <div class="input-group">
+                    <label>服务商（可选）</label>
+                    <input type="text" id="issuerName" placeholder="例如：GitHub">
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary btn-block" onclick="addAccount()">
+                    <span>🔐</span> 添加账户
+                </button>
+            </div>
+        </div>
+
+        <!-- 账户列表 -->
+        <div class="card">
+            <div class="card-title" style="justify-content: space-between;">
+                <span><span>📋</span> 已保存的账户</span>
+                <span style="display: flex; gap: 8px;">
+                    <button class="btn btn-sm" onclick="document.getElementById('fileInput').click()" title="从文件导入">
+                        📥 导入
+                    </button>
+                    <button class="btn btn-sm" onclick="exportAccounts()" title="导出所有账户到文件">
+                        📤 导出
+                    </button>
+                </span>
+                <input type="file" id="fileInput" accept=".json" onchange="importAccounts(event)">
+            </div>
+            <div class="account-list" id="accountList">
+                <div class="empty-state">
+                    <div class="icon">🔒</div>
+                    <p>还没有添加账户<br>请在上方粘贴 GitHub 的 2FA 密钥</p>
+                </div>
+            </div>
+            <p class="help-text" style="margin-top: 12px;">
+                💡 点击账户可切换显示验证码 · 数据仅存储在浏览器本地
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // ==================== TOTP 核心算法 ====================
+        // 完全符合 RFC 6238 / RFC 4226 标准
+
+        /**
+         * Base32 解码 (RFC 4648)
+         */
+        function base32Decode(base32) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            base32 = base32.toUpperCase().replace(/[^A-Z2-7]/g, '');
+            
+            let bits = '';
+            for (let i = 0; i < base32.length; i++) {
+                const val = alphabet.indexOf(base32[i]);
+                if (val === -1) continue;
+                bits += val.toString(2).padStart(5, '0');
+            }
+            
+            const bytes = [];
+            for (let i = 0; i + 8 <= bits.length; i += 8) {
+                bytes.push(parseInt(bits.substring(i, i + 8), 2));
+            }
+            
+            return new Uint8Array(bytes);
+        }
+
+        /**
+         * HMAC-SHA-1 实现 (使用 Web Crypto API)
+         */
+        async function hmacSha1(key, message) {
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                key,
+                { name: 'HMAC', hash: 'SHA-1' },
+                false,
+                ['sign']
+            );
+            const signature = await crypto.subtle.sign('HMAC', cryptoKey, message);
+            return new Uint8Array(signature);
+        }
+
+        /**
+         * 动态截断 (Dynamic Truncation)
+         */
+        function dynamicTruncation(hmacResult) {
+            const offset = hmacResult[19] & 0x0f;
+            const binary = 
+                ((hmacResult[offset] & 0x7f) << 24) |
+                ((hmacResult[offset + 1] & 0xff) << 16) |
+                ((hmacResult[offset + 2] & 0xff) << 8) |
+                (hmacResult[offset + 3] & 0xff);
+            return binary % 1000000;
+        }
+
+        /**
+         * 生成 TOTP
+         * @param {string} secret - Base32 编码的密钥
+         * @param {number} timeStep - 时间步长 (默认 30 秒)
+         * @param {number} digits - 验证码位数 (默认 6 位)
+         * @returns {Promise<{otp: string, remainingSeconds: number}>}
+         */
+        async function generateTOTP(secret, timeStep = 30, digits = 6) {
+            const key = base32Decode(secret);
+            const now = Math.floor(Date.now() / 1000);
+            const counter = Math.floor(now / timeStep);
+            
+            // 将 counter 转换为 8 字节大端整数
+            const counterBytes = new Uint8Array(8);
+            let tempCounter = counter;
+            for (let i = 7; i >= 0; i--) {
+                counterBytes[i] = tempCounter & 0xff;
+                tempCounter = Math.floor(tempCounter / 256);
+            }
+            
+            const hmac = await hmacSha1(key, counterBytes);
+            const otpValue = dynamicTruncation(hmac);
+            const otp = otpValue.toString().padStart(digits, '0');
+            
+            const remainingSeconds = timeStep - (now % timeStep);
+            
+            return { otp, remainingSeconds };
+        }
+
+        /**
+         * 解析 otpauth URL
+         */
+        function parseOtpauthUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                if (urlObj.protocol !== 'otpauth:') return null;
+                
+                const type = urlObj.hostname; // totp 或 hotp
+                if (type !== 'totp') return null; // 只支持 TOTP
+                
+                const path = urlObj.pathname.replace(/^\//, '');
+                const params = new URLSearchParams(urlObj.search);
+                const secret = params.get('secret');
+                
+                if (!secret) return null;
+                
+                // 解析 label: "issuer:account" 或 "account"
+                let issuer = params.get('issuer') || '';
+                let account = path;
+                
+                // 如果 label 包含冒号，格式为 "issuer:account"
+                if (path.includes(':')) {
+                    const parts = path.split(':');
+                    issuer = issuer || parts[0];
+                    account = parts.slice(1).join(':');
+                }
+                
+                return {
+                    secret: secret,
+                    account: decodeURIComponent(account),
+                    issuer: decodeURIComponent(issuer),
+                    period: parseInt(params.get('period')) || 30,
+                    digits: parseInt(params.get('digits')) || 6
+                };
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // ==================== 账户管理 ====================
+
+        const STORAGE_KEY = 'totp_accounts';
+        const ACTIVE_INDEX_KEY = 'totp_active_index';
+
+        // 账户结构: { secret, account, issuer, period, digits, createdAt }
+        let accounts = [];
+        let currentAccountIndex = -1;
+        let timerInterval = null;
+
+        /**
+         * 从 localStorage 加载账户
+         */
+        function loadAccounts() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                if (data) {
+                    accounts = JSON.parse(data);
+                }
+                const activeIndex = localStorage.getItem(ACTIVE_INDEX_KEY);
+                if (activeIndex !== null) {
+                    currentAccountIndex = parseInt(activeIndex);
+                    if (currentAccountIndex >= accounts.length) {
+                        currentAccountIndex = accounts.length > 0 ? 0 : -1;
+                    }
+                } else if (accounts.length > 0) {
+                    currentAccountIndex = 0;
+                }
+            } catch (e) {
+                console.error('加载账户失败:', e);
+                accounts = [];
+                currentAccountIndex = -1;
+            }
+        }
+
+        /**
+         * 保存账户到 localStorage
+         */
+        function saveAccounts() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+                localStorage.setItem(ACTIVE_INDEX_KEY, currentAccountIndex.toString());
+            } catch (e) {
+                console.error('保存账户失败:', e);
+                showToast('❌ 存储空间不足，请清理旧账户');
+            }
+            renderAccountList();
+            updateActiveDisplay();
+        }
+
+        /**
+         * 清理和验证密钥
+         */
+        function cleanSecret(input) {
+            // 移除空格、换行、以及常见的前缀
+            let cleaned = input.trim();
+            
+            // 尝试解析为 otpauth URL
+            const parsed = parseOtpauthUrl(cleaned);
+            if (parsed) {
+                return parsed;
+            }
+            
+            // 尝试作为纯 Base32 密钥处理
+            // 移除可能的前缀如 "secret="
+            cleaned = cleaned.replace(/^secret[=:]\s*/i, '');
+            // 移除所有非 Base32 字符
+            cleaned = cleaned.toUpperCase().replace(/[^A-Z2-7]/g, '');
+            
+            // 验证 Base32 长度 (通常是 16 的倍数，至少 16 个字符)
+            if (cleaned.length < 16) {
+                return null;
+            }
+            
+            // Base32 填充
+            while (cleaned.length % 8 !== 0) {
+                cleaned += '=';
+            }
+            
+            return {
+                secret: cleaned,
+                account: '',
+                issuer: '',
+                period: 30,
+                digits: 6
+            };
+        }
+
+        /**
+         * 添加账户
+         */
+        function addAccount() {
+            const input = document.getElementById('secretInput').value.trim();
+            const accountName = document.getElementById('accountName').value.trim();
+            const issuerName = document.getElementById('issuerName').value.trim();
+            
+            if (!input) {
+                showToast('⚠️ 请输入密钥或 otpauth 链接');
+                return;
+            }
+            
+            const cleaned = cleanSecret(input);
+            if (!cleaned) {
+                showToast('❌ 无效的密钥格式，请检查后重试');
+                return;
+            }
+            
+            // 检查是否已存在相同密钥
+            const exists = accounts.find(a => a.secret === cleaned.secret);
+            if (exists) {
+                showToast('⚠️ 该密钥已存在，请勿重复添加');
+                return;
+            }
+            
+            const account = {
+                secret: cleaned.secret,
+                account: accountName || cleaned.account || `Account-${accounts.length + 1}`,
+                issuer: issuerName || cleaned.issuer || '',
+                period: cleaned.period || 30,
+                digits: cleaned.digits || 6,
+                createdAt: Date.now()
+            };
+            
+            accounts.push(account);
+            currentAccountIndex = accounts.length - 1;
+            
+            // 清空输入
+            document.getElementById('secretInput').value = '';
+            document.getElementById('accountName').value = '';
+            document.getElementById('issuerName').value = '';
+            
+            saveAccounts();
+            showToast('✅ 账户添加成功！');
+        }
+
+        /**
+         * 删除账户
+         */
+        function removeAccount(index) {
+            if (index < 0 || index >= accounts.length) return;
+            
+            if (!confirm(`确定要删除账户 "${accounts[index].account}" 吗？\n此操作不可恢复，请确保已备份密钥。`)) {
+                return;
+            }
+            
+            accounts.splice(index, 1);
+            if (accounts.length === 0) {
+                currentAccountIndex = -1;
+            } else if (currentAccountIndex >= accounts.length) {
+                currentAccountIndex = accounts.length - 1;
+            }
+            saveAccounts();
+            showToast('🗑️ 账户已删除');
+        }
+
+        /**
+         * 切换当前账户
+         */
+        function selectAccount(index) {
+            if (index < 0 || index >= accounts.length) return;
+            currentAccountIndex = index;
+            localStorage.setItem(ACTIVE_INDEX_KEY, currentAccountIndex.toString());
+            renderAccountList();
+            updateActiveDisplay();
+        }
+
+        /**
+         * 导出账户 (JSON 文件)
+         */
+        function exportAccounts() {
+            if (accounts.length === 0) {
+                showToast('⚠️ 没有可导出的账户');
+                return;
+            }
+            
+            const exportData = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                accounts: accounts.map(a => ({
+                    secret: a.secret,
+                    account: a.account,
+                    issuer: a.issuer,
+                    period: a.period,
+                    digits: a.digits
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `totp-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast('📤 账户已导出，请妥善保管！');
+        }
+
+        /**
+         * 导入账户 (从 JSON 文件)
+         */
+        function importAccounts(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (!data.accounts || !Array.isArray(data.accounts)) {
+                        throw new Error('无效的备份文件格式');
+                    }
+                    
+                    let importedCount = 0;
+                    for (const acc of data.accounts) {
+                        if (!acc.secret) continue;
+                        
+                        // 检查是否已存在
+                        const exists = accounts.find(a => a.secret === acc.secret);
+                        if (exists) continue;
+                        
+                        accounts.push({
+                            secret: acc.secret,
+                            account: acc.account || `Imported-${importedCount + 1}`,
+                            issuer: acc.issuer || '',
+                            period: acc.period || 30,
+                            digits: acc.digits || 6,
+                            createdAt: Date.now()
+                        });
+                        importedCount++;
+                    }
+                    
+                    if (importedCount > 0) {
+                        if (currentAccountIndex === -1) currentAccountIndex = 0;
+                        saveAccounts();
+                        showToast(`✅ 成功导入 ${importedCount} 个账户`);
+                    } else {
+                        showToast('⚠️ 没有新的账户可导入（可能已存在）');
+                    }
+                } catch (err) {
+                    console.error('导入失败:', err);
+                    showToast('❌ 文件格式无效，请检查文件');
+                }
+            };
+            reader.readAsText(file);
+            
+            // 重置文件输入
+            event.target.value = '';
+        }
+
+        /**
+         * 显示 Toast 消息
+         */
+        function showToast(message) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) toast.remove();
+            }, 2000);
+        }
+
+        // ==================== UI 更新 ====================
+
+        /**
+         * 更新当前验证码显示
+         */
+        async function updateActiveDisplay() {
+            const activeCard = document.getElementById('activeCard');
+            const accountInfo = document.getElementById('activeAccountInfo');
+            const otpCode = document.getElementById('otpCode');
+            const timerBar = document.getElementById('timerBar');
+            const timerText = document.getElementById('timerText');
+            
+            if (currentAccountIndex === -1 || accounts.length === 0) {
+                // 没有账户时显示提示
+                otpCode.textContent = '添加账户以生成验证码';
+                otpCode.className = 'otp-code placeholder';
+                timerBar.style.width = '0%';
+                timerText.textContent = '等待添加账户...';
+                accountInfo.style.display = 'none';
+                return;
+            }
+            
+            const account = accounts[currentAccountIndex];
+            
+            document.getElementById('activeIssuer').textContent = account.issuer || '未知';
+            document.getElementById('activeAccount').textContent = account.account;
+            accountInfo.style.display = 'flex';
+            
+            await refreshOTP();
+        }
+
+        /**
+         * 刷新验证码
+         */
+        async function refreshOTP() {
+            const otpElement = document.getElementById('otpCode');
+            const timerBar = document.getElementById('timerBar');
+            const timerText = document.getElementById('timerText');
+            
+            if (currentAccountIndex === -1 || accounts.length === 0) {
+                otpElement.textContent = '添加账户以生成验证码';
+                otpElement.className = 'otp-code placeholder';
+                timerBar.style.width = '0%';
+                timerText.textContent = '等待添加账户...';
+                return;
+            }
+            
+            const account = accounts[currentAccountIndex];
+            
+            try {
+                const { otp, remainingSeconds } = await generateTOTP(
+                    account.secret, 
+                    account.period, 
+                    account.digits
+                );
+                
+                otpElement.textContent = otp;
+                
+                const percentLeft = (remainingSeconds / account.period) * 100;
+                timerBar.style.width = percentLeft + '%';
+                timerText.textContent = `剩余 ${remainingSeconds} 秒`;
+                
+                // 更新样式
+                otpElement.classList.remove('placeholder', 'expiring', 'expired');
+                timerBar.classList.remove('expiring', 'expired');
+                
+                if (remainingSeconds <= 5 && remainingSeconds > 0) {
+                    otpElement.classList.add('expiring');
+                    timerBar.classList.add('expiring');
+                } else if (remainingSeconds <= 0) {
+                    otpElement.classList.add('expired');
+                    timerBar.classList.add('expired');
+                }
+            } catch (e) {
+                console.error('生成验证码失败:', e);
+                otpElement.textContent = '密钥无效';
+                otpElement.className = 'otp-code placeholder';
+                timerBar.style.width = '0%';
+                timerText.textContent = '密钥格式错误';
+            }
+        }
+
+        /**
+         * 渲染账户列表
+         */
+        async function renderAccountList() {
+            const listElement = document.getElementById('accountList');
+            
+            if (accounts.length === 0) {
+                listElement.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔒</div>
+                        <p>还没有添加账户<br>请在上方粘贴 GitHub 的 2FA 密钥</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            for (let i = 0; i < accounts.length; i++) {
+                const acc = accounts[i];
+                const isActive = i === currentAccountIndex;
+                
+                let otpDisplay = '------';
+                try {
+                    const { otp } = await generateTOTP(acc.secret, acc.period, acc.digits);
+                    otpDisplay = otp;
+                } catch (e) {
+                    otpDisplay = 'ERROR';
+                }
+                
+                html += `
+                    <div class="account-item ${isActive ? 'active' : ''}" onclick="selectAccount(${i})">
+                        <div>
+                            <div class="acc-name">${escapeHtml(acc.account)}</div>
+                            <div class="acc-issuer">${escapeHtml(acc.issuer || '未知服务商')}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span class="acc-otp">${otpDisplay}</span>
+                            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();removeAccount(${i})" title="删除">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            listElement.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== 定时器 ====================
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            
+            // 立即刷新一次
+            refreshOTP();
+            renderAccountList();
+            
+            // 每秒更新
+            timerInterval = setInterval(() => {
+                refreshOTP();
+                // 同时更新列表中的验证码
+                renderAccountList();
+            }, 1000);
+        }
+
+        // ==================== 键盘快捷键 ====================
+
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + Enter 添加账户
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                addAccount();
+            }
+        });
+
+        // ==================== 初始化 ====================
+
+        function init() {
+            loadAccounts();
+            renderAccountList();
+            updateActiveDisplay();
+            startTimer();
+            
+            console.log('🔐 TOTP 验证码生成器已就绪');
+            console.log('📋 已加载 ' + accounts.length + ' 个账户');
+            console.log('🔒 所有数据仅存储在浏览器本地 localStorage');
+            console.log('🌐 完全离线可用，无需网络连接');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
+
+        // 页面可见性变化时刷新 (从后台切换回来立即更新)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                refreshOTP();
+                renderAccountList();
+            }
+        });
+    </script>
+</body>
+</html>
